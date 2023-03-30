@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 # Ignore shellcheck case SC2086
 # shellcheck disable=SC2086
 
