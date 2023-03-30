@@ -1,41 +1,35 @@
 #!/usr/bin/env bash
 # Ignore shellcheck case SC2086
-# shellcheck disable=SC2086
 
-# Function to audit subdomains
-audit_subdomain() {
-    local domain=$1
-    local subdomain=$2
-    local record
-
-    record=$(dig +short $subdomain.$domain)
-    record_type=$(dig +short -t A $subdomain.$domain)
-
-    if [[ -z "$record" ]]; then
-        echo "No record found for $subdomain.$domain"
-    elif [[ -n "$record_type" ]]; then
-        echo "The subdomain $subdomain.$domain is an A record and points to $record"
-    else
-        record_type=$(dig +short -t CNAME $subdomain.$domain)
-        echo "The subdomain $subdomain.$domain is a CNAME record and points to $record"
-    fi
+# Define a function that takes a string as an argument and returns the third word in the string, which is the record type
+function get_record_type {
+    local record_type=$(echo "$1" | awk '{print $4}')
+    echo "$record_type"
 }
-
-# Check if domain argument is provided
-if [[ -z "$1" ]]; then
-    echo "Error: domain name is mandatory"
-    exit 1
-else
-    domain=$1
-fi
-
-# Check if subdomain argument is provided
-if [[ -n "$2" ]]; then
-    subdomain=$2
-    audit_subdomain $domain $subdomain
-else
+# Define a function that takes a string as an argument and returns the fourth word in the string, which is the destination
+function get_destination {
+    local destination=$(echo "$1" | awk '{print $5}')
+    echo "$destination"
+}
+# Assign the first command-line argument to a variable called domain
+domain="$1"
+# Assign the second command-line argument to a variable called subdomain
+subdomain="$2"
+# If the subdomain variable is empty, assign an array of four subdomains to a variable called subdomains
+if [[ -z "$subdomain" ]]; then
     subdomains=("www" "lb-01" "web-01" "web-02")
-    for subdomain in "${subdomains[@]}"; do
-        audit_subdomain $domain $subdomain
-    done
+else
+    # Otherwise, assign the subdomain variable to an array called subdomains
+    subdomains=("$subdomain")
 fi
+# Loop over each element in the subdomains array
+for subdomain in "${subdomains[@]}"; do
+     # Use the dig command to query the DNS record for the subdomain and domain combination and assign the output to a variable called record
+    record="$(dig "$subdomain.$domain" | grep -A1 "ANSWER SECTION:" |awk 'NR==2')"
+     # Call the get_record_type function with the record variable as an argument and assign the output to a variable called record_type
+    record_type=$(get_record_type "$record")
+    # Call the get_destination function with the record variable as an argument and assign the output to a variable called destination
+    destination=$(get_destination "$record")
+     # Print a message with the subdomain, record type and destination variables
+    echo "The subdomain $subdomain is a $record_type record and points to $destination"
+done
